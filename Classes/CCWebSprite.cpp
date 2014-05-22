@@ -96,7 +96,7 @@ bool WebSprite::initWithRemoteFile() {
 	http_connection_ = std::make_shared<HttpConnection>();
 	http_connection_->Init(file_url_.c_str());
 	png_coder_->PrepareDecode();
-	png_coder_->SetReadCallBack(this, &WebSprite::DataBridge::ReadHeaderCompleteCallBack, WebSprite::DataBridge::ReadRowCompleteCallBack, WebSprite::DataBridge::ReadAllCompleteCallBack);
+	png_coder_->SetReadCallBack(this, WebSprite::DataBridge::ReadHeaderCompleteCallBack, WebSprite::DataBridge::ReadRowCompleteCallBack, WebSprite::DataBridge::ReadAllCompleteCallBack);
 	http_connection_->SetWriteCallBack(this, WebSprite::DataBridge::WriteData);
 	this->scheduleUpdate();
 	std::thread http_thread = std::thread(std::bind(&HttpConnection::PerformGet, http_connection_));
