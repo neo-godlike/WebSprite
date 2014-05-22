@@ -11,11 +11,13 @@
 #include "http_connection.h"
 #include "png_codec.h"
 
+#include <future>
+
 namespace cocos2d {
 
-namespace {
-  // Callback function used by libcurl for collect response data
-size_t WriteData(void *ptr, size_t size, size_t nmemb, void *stream) {
+
+	  // Callback function used by libcurl for collect response data
+size_t WebSprite::DataBridge::WriteData(void *ptr, size_t size, size_t nmemb, void *stream) {
   if (stream == nullptr) {
 		return 0;
   }
@@ -28,30 +30,32 @@ size_t WriteData(void *ptr, size_t size, size_t nmemb, void *stream) {
   return sizes;
 }
 
-void ReadHeaderCompleteCallBack(void* ptr) {
+void WebSprite::DataBridge::ReadHeaderCompleteCallBack(void* ptr) {
 	WebSprite* web_sprite = static_cast<WebSprite*>(ptr);
 	web_sprite->readHeaderComplete();
 }
 
-void ReadRowCompleteCallBack(void* ptr, int pass) {
+void WebSprite::DataBridge::ReadRowCompleteCallBack(void* ptr, int pass) {
   WebSprite* web_sprite = static_cast<WebSprite*>(ptr);
   web_sprite->readRowComplete(pass);
 }
 
-void ReadAllCompleteCallBack(void* ptr) {
+void WebSprite::DataBridge::ReadAllCompleteCallBack(void* ptr) {
   WebSprite* web_sprite = static_cast<WebSprite*>(ptr);
   web_sprite->readAllComplete();
 }
-} //namespace anymous
-  
-WebSprite::WebSprite(): http_connection_(new HttpConnection()),
-	png_coder_(new util::PNGCodec()), interlaced_png_image_buff_(new InterlacedPngImage()), code_pass_(-1){
+
+
+WebSprite::WebSprite() : http_connection_(nullptr),
+	png_coder_(std::make_shared<util::PNGCodec>()), interlaced_png_image_buff_(new InterlacedPngImage()), code_pass_(-1){
 
 }
 
 WebSprite::~WebSprite() {
-	http_connection_->SetWriteCallBack(nullptr, WriteData);
-	CC_SAFE_DELETE(png_coder_);
+	if (http_connection_ != nullptr) {
+		http_connection_->SetWriteCallBack(nullptr, WebSprite::DataBridge::WriteData);
+	}
+	png_coder_->SetReadCallBack(nullptr, nullptr, nullptr, nullptr);
 	CC_SAFE_RELEASE(interlaced_png_image_buff_);
 }
 
@@ -80,14 +84,45 @@ WebSprite* WebSprite::createWithFileUrl(const char *file_url) {
 bool WebSprite::initWithFileUrl(const char *file_url) {
   Sprite::init();
   file_url_ = file_url;
-  http_connection_->Init(file_url);
-  png_coder_->PrepareDecode();
-	png_coder_->SetReadCallBack(this, ReadHeaderCompleteCallBack, ReadRowCompleteCallBack, ReadAllCompleteCallBack);
-  http_connection_->SetWriteCallBack(this, WriteData);
-  this->scheduleUpdate();
-  std::thread http_thread = std::thread(std::bind(&HttpConnection::PerformGet, http_connection_));
-  http_thread.detach();
-  return true;
+	if (isRemotoeFileUrl(file_url)) {
+		return initWithRemoteFile();
+	} else {
+		return initWithLocalFile();
+	}
+}
+
+bool WebSprite::initWithRemoteFile() {
+	assert(http_connection_ == nullptr);
+	http_connection_ = std::make_shared<HttpConnection>();
+	http_connection_->Init(file_url_.c_str());
+	png_coder_->PrepareDecode();
+	png_coder_->SetReadCallBack(this, &WebSprite::DataBridge::ReadHeaderCompleteCallBack, WebSprite::DataBridge::ReadRowCompleteCallBack, WebSprite::DataBridge::ReadAllCompleteCallBack);
+	http_connection_->SetWriteCallBack(this, WebSprite::DataBridge::WriteData);
+	this->scheduleUpdate();
+	std::thread http_thread = std::thread(std::bind(&HttpConnection::PerformGet, http_connection_));
+	http_thread.detach();
+	return true;
+}
+
+bool WebSprite::initWithLocalFile() {
+	auto filePath = FileUtils::getInstance()->fullPathForFilename(file_url_);
+	std::shared_ptr<Data> data = std::make_shared<Data>(FileUtils::getInstance()->getDataFromFile(filePath));
+	png_coder_->PrepareDecode();
+	png_coder_->SetReadCallBack(this, &WebSprite::DataBridge::ReadHeaderCompleteCallBack, WebSprite::DataBridge::ReadRowCompleteCallBack, WebSprite::DataBridge::ReadAllCompleteCallBack);
+	std::thread http_thread = std::thread(std::bind([=](){
+				png_coder_->Decoding(data->getBytes(), data->getSize());
+			}
+		));
+	http_thread.detach();
+	this->scheduleUpdate();
+	return true;
+}
+
+bool WebSprite::isRemotoeFileUrl(const char *file_url) {
+	if (strlen(file_url) > 7 && (strncmp(file_url, "http://", 7) == 0)) {
+		return true;
+	}
+	return false;
 }
 
 void WebSprite::reciverData(unsigned char* data, size_t data_size) {

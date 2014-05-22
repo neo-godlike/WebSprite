@@ -148,7 +148,9 @@ void DecodeInfoCallback(png_struct* png_ptr, png_info* info_ptr) {
   png_reader->buffer_size_ = png_reader->width_ * png_reader->output_channels_ * png_reader->height_;
   png_reader->interlace_buffer_ = new png_byte[png_reader->buffer_size_];
   png_reader->decode_state_ = PNGCodec::DecodeState::DECODE_HEADER_DONE;
-	png_reader->read_header_complete_callback_(png_reader->custom_ptr);
+	if (png_reader->read_header_complete_callback_ != NULL && png_reader->custom_ptr != NULL) {
+		png_reader->read_header_complete_callback_(png_reader->custom_ptr);
+	}
 }
 
 void DecodeRowCallback(png_struct* png_ptr, png_byte* new_row,
@@ -169,7 +171,9 @@ void DecodeRowCallback(png_struct* png_ptr, png_byte* new_row,
     png_reader->buffer_size_ = png_reader->width_ * png_reader->output_channels_ * (row_num + 1);
     unsigned char* dest = &base[png_reader->width_ * png_reader->output_channels_ * row_num];
     png_progressive_combine_row(png_ptr, dest, new_row);
-    png_reader->read_row_complete_callback_(png_reader->custom_ptr, pass);
+		if (png_reader->read_row_complete_callback_ != NULL && png_reader->custom_ptr != NULL) {
+			png_reader->read_row_complete_callback_(png_reader->custom_ptr, pass);
+		}
   }
 }
 
@@ -180,7 +184,9 @@ void DecodeEndCallback(png_struct* png_ptr, png_info* info) {
   // Mark the image as complete, this will tell the Decode function that we
   // have successfully found the end of the data.
   png_reader->decode_state_ = PNGCodec::DecodeState::DECODE_DONE;
-  png_reader->read_all_complete_callback_(png_reader->custom_ptr);
+	if (png_reader->read_all_complete_callback_ != NULL && png_reader->custom_ptr != NULL) {
+		png_reader->read_all_complete_callback_(png_reader->custom_ptr);
+	}
 }
 
 // Automatically destroys the given read structs on destruction to make

@@ -40,10 +40,6 @@ HttpConnection::~HttpConnection() {
 }
 
 bool HttpConnection::Init(const char* url) {
-  if (easy_handle_) {
-    curl_easy_cleanup(easy_handle_);
-    easy_handle_ = NULL;
-  }
   easy_handle_ = curl_easy_init();
   if (!easy_handle_) {
     return false;

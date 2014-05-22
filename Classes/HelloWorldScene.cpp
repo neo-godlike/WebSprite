@@ -70,10 +70,15 @@ bool HelloWorld::init()
     // add "HelloWorld" splash screen"
     //auto sprite = Sprite::createWithTexture(texture);
     // position the sprite on the center of the screen
-    sprite->setPosition(Point(visibleSize / 2) + origin);
-
+    sprite->setPosition(Point(150, visibleSize.height /2));
+		this->addChild(sprite);
+		WebSprite* sprite2 = WebSprite::createWithFileUrl("future.png");
+		// add "HelloWorld" splash screen"
+		//auto sprite = Sprite::createWithTexture(texture);
+		// position the sprite on the center of the screen
+		sprite2->setPosition(Point(400, visibleSize.height / 2));
     // add the sprite as a child to this layer
-    this->addChild(sprite);
+    this->addChild(sprite2);
     
     return true;
 }
